@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:weather_app/models/ForecastData.dart';
 import 'package:weather_app/widgets/Weather.dart';
 import 'package:weather_app/models/WeatherData.dart';
+import 'package:weather_app/widgets/WeatherItem.dart';
 
 import 'package:location/location.dart';
 import 'package:flutter/services.dart';
@@ -37,6 +39,7 @@ class _MyAppState extends State<MyApp> {
   String errormsg;
   bool isLoading = false;
   WeatherData weatherData;
+  ForecastData forecastData;
 
   Location mylocation = new Location();
 
@@ -97,13 +100,29 @@ class _MyAppState extends State<MyApp> {
                           : IconButton(
                               icon: new Icon(Icons.refresh),
                               tooltip: 'Refresh',
-                              onPressed: () => null,
+                              onPressed: () => processWeather(),
                               color: Colors.black,
                             ),
                     ),
                   ],
                 ),
               ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    height: 200.0,
+                    child: forecastData != null
+                        ? ListView.builder(
+                            itemCount: forecastData.list.length,
+                            scrollDirection: Axis.horizontal,
+                            itemBuilder: (context, index) => WeatherItem(
+                                  weather: forecastData.list.elementAt(index),
+                                ))
+                        : Container(),
+                  ),
+                ),
+              )
             ])));
   }
 
@@ -115,6 +134,8 @@ class _MyAppState extends State<MyApp> {
     LocationData location;
     try {
       location = await mylocation.getLocation();
+      print(location.latitude);
+      print(location.longitude);
       errormsg = null;
     } on PlatformException catch (e) {
       if (e.code == 'PERMISSION_DENIED') {
@@ -129,11 +150,17 @@ class _MyAppState extends State<MyApp> {
       final lon = location.longitude;
       final weatherResponse = await http.get(
           'https://api.openweathermap.org/data/2.5/weather?APPID=7ff7bcde0851ccf3fc9f7a044f62a817&lat=${lat.toString()}&lon=${lon.toString()}&units=metric');
-      if (weatherResponse.statusCode == 200) {
+      final forecastResponse = await http.get(
+          'https://api.openweathermap.org/data/2.5/forescast?APPID=7ff7bcde0851ccf3fc9f7a044f62a817&lat=${lat.toString()}&lon=${lon.toString()}&units=metric');
+
+      if (weatherResponse.statusCode == 200 &&
+          forecastResponse.statusCode == 200) {
         return setState(() {
           weatherData =
               new WeatherData.fromJson(jsonDecode(weatherResponse.body));
-          isLoading = false;
+          forecastData =
+              new ForecastData.fromJson(jsonDecode(forecastResponse.body));
+          isLoading = true;
         });
       }
     }
@@ -187,7 +214,7 @@ class _NextscreenState extends State<Nextscreen> {
                   : IconButton(
                       icon: new Icon(Icons.refresh),
                       tooltip: 'Refresh',
-                      onPressed: () => null,
+                      onPressed: () => weathercity(),
                       color: Colors.black,
                     ),
             ),
